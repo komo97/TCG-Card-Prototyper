@@ -1,0 +1,12 @@
+{
+    "name": "TestTemplate",
+    "background": "",
+    "attributes": [
+        {
+            "name": "Card name",
+            "x": "200",
+            "y": "200",
+            "styling": "bold"
+        }
+    ]
+}

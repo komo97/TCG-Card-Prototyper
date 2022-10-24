@@ -1,0 +1,10 @@
+{
+    "templateName": "TestTemplate",
+    "art": "",
+    "attributes": [
+        {
+            "type": "Card name",
+            "text": "Test card"
+        }
+    ]
+}

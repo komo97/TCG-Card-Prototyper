@@ -1,85 +1,138 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { cairoVersion, Canvas, createCanvas, Image, loadImage } from 'canvas';
+const fs = require("fs");
 
 // Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
-	mySetting: string;
+interface CardAttribute {
+	name: string;
+	x: number;
+	y: number;
+	styling: string;
+	rotation: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+interface CardTemplate {
+	name: string;
+	background: string;
+	attributes: Array<CardAttribute>;
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+interface CardTemplates{
+	data : Array<CardTemplate>;
+}
+
+const DEFAULT_SETTINGS: CardTemplates = {
+	data : []
+}
+
+export default class TCGCardPrototyper extends Plugin {
+	settings: CardTemplates;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
+		//This command adds a new template for the cards
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
+			id: 'add-card-template',
+			name: 'Add card template',
 			checkCallback: (checking: boolean) => {
 				// Conditions to check
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
+					const rawData = markdownView.getViewData();
+					if(!rawData.includes("```cardTemplate")){
+						return false;
 					}
-
-					// This command will only show up in Command Palette when the check function returns true
+					if(!checking){
+						const splitData = markdownView?.getViewData().split('\n');
+						let jsonDataRaw = "";
+						let cardTemplateFound = false;
+						for(let i = 0; i < splitData.length; ++i){
+							if(!cardTemplateFound && splitData[i] === "```cardTemplate"){
+								cardTemplateFound = true;
+							}
+							else if(cardTemplateFound){
+								if(splitData[i] === "```"){
+									break;
+								}
+								jsonDataRaw += splitData[i];
+							}
+						}
+						const jsonData = JSON.parse(jsonDataRaw);
+						if(jsonData.name === undefined){
+							return true;
+						}
+						let settingSlot = -1;
+						for(let i = 0; i < this.settings.data.length; ++i){
+							if(this.settings.data[i].name === jsonData.name){
+								settingSlot = i;
+							}
+						}
+						if(settingSlot === -1){
+							this.settings.data.push(jsonData);
+						}
+						else{
+							this.settings.data[settingSlot] = jsonData;
+						}
+						this.saveData(this.settings);
+					}
 					return true;
 				}
 			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.registerMarkdownCodeBlockProcessor("card",async (source, el, ctx)=>{
+			if(source === "")
+				return;
+			const table = el.createEl("table");
+			const body = table.createEl("tbody");
+			const contentRow = body.createEl("tr");
+			const cardImgCanvas = createCanvas(700,1050);
+			const cardImgCtx = cardImgCanvas.getContext("2d");
+			const parsedJson = JSON.parse(source);
+			const cardImageType = this.settings.data.find(data => data.name === parsedJson.templateName);
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+			contentRow.createEl("td", {text: source});
+			if(cardImageType === undefined)
+				return;
+			
+			if(parsedJson.art !== undefined && parsedJson.art !== ""){
+				const imgfile = this.app.vault.getAbstractFileByPath(parsedJson.art);
+				const path = this.app.vault.getResourcePath(imgfile as TFile);
+				const cardTemplateArt = await loadImage(path);
+				cardImgCtx.drawImage(cardTemplateArt,0,0,700,1050);
+			}
+			if(cardImageType.background !== undefined && cardImageType.background !== ""){
+				const imgfile = this.app.vault.getAbstractFileByPath(cardImageType.background);
+				const path = this.app.vault.getResourcePath(imgfile as TFile);
+				const cardTemplateArt = await loadImage(path);
+				cardImgCtx.drawImage(cardTemplateArt,0,0,700,1050);
+			}
+			for(let i = 0; i < parsedJson.attributes.length; ++i){
+				const attributeType = cardImageType.attributes.find(data => data.name === parsedJson.attributes[i].type);
+				if(attributeType !== undefined){
+					cardImgCtx.font = attributeType.styling;
+					if(attributeType.rotation !== undefined){
+						cardImgCtx.translate(attributeType.x,attributeType.y);
+						cardImgCtx.rotate(attributeType.rotation * (Math.PI / 180));
+						cardImgCtx.translate(-attributeType.x,-attributeType.y);
+					}
+					cardImgCtx.fillText(parsedJson.attributes[i].text,attributeType.x,attributeType.y);
+					if(attributeType.rotation !== undefined){
+						cardImgCtx.setTransform(1, 0, 0, 1, 0, 0);
+					}
+				}
+			}
+			const imgRow = body.createEl("tr");
+			imgRow.createEl("td").createEl("img", {attr: {["src"]:cardImgCanvas.toDataURL()}});
+			
 		});
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
-	onunload() {
-
+	async onunload() {
+		await this.saveSettings();
 	}
 
 	async loadSettings() {
@@ -91,47 +144,5 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
-}

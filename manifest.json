@@ -1,10 +1,10 @@
 {
-	"id": "obsidian-sample-plugin",
-	"name": "Sample Plugin",
+	"id": "tcg-card-prototyper",
+	"name": "TCG Card Prototyper",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "This is a sample plugin for Obsidian. This plugin demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"isDesktopOnly": false
+	"description": "This is a plugin to prototype TCG and CCG cards",
+	"author": "LemonLivesey",
+	"authorUrl": "https://github.com/komo97/",
+	"isDesktopOnly": true
 }
