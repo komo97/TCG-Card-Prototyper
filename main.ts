@@ -10,6 +10,8 @@ interface CardAttribute {
 	y: number;
 	styling: string;
 	rotation: number;
+	fontSize: number;
+	width: number;
 }
 
 interface CardTemplate {
@@ -118,7 +120,12 @@ export default class TCGCardPrototyper extends Plugin {
 						cardImgCtx.rotate(attributeType.rotation * (Math.PI / 180));
 						cardImgCtx.translate(-attributeType.x,-attributeType.y);
 					}
-					cardImgCtx.fillText(parsedJson.attributes[i].text,attributeType.x,attributeType.y);
+					const text = parsedJson.attributes[i].text.split("\n");
+					for(let j = 0; j < text.length; ++j){
+						cardImgCtx.fillText(text[j],attributeType.x,attributeType.y + 
+							((attributeType.fontSize !== undefined ? attributeType.fontSize : 0)*j), 
+							attributeType.width);
+					}
 					if(attributeType.rotation !== undefined){
 						cardImgCtx.setTransform(1, 0, 0, 1, 0, 0);
 					}
