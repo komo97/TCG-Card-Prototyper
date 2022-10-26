@@ -4,9 +4,17 @@
     "attributes": [
         {
             "name": "Card name",
-            "x": "200",
-            "y": "200",
-            "styling": "bold"
+            "styling": "bold",
+            "text": "",
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "fontSize": 10,
+            "imgScr": "",
+            "imgx": 0,
+            "imgy": 0,
+            "imgw": 0,
+            "imgh": 0
         }
     ]
 }

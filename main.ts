@@ -12,11 +12,18 @@ interface CardAttribute {
 	rotation: number;
 	fontSize: number;
 	width: number;
+	imgSrc: string;
+	imgx: number;
+	imgy: number;
+	imgw: number;
+	imgh: number;
 }
 
 interface CardTemplate {
 	name: string;
 	background: string;
+	width: number;
+	height: number;
 	attributes: Array<CardAttribute>;
 }
 
@@ -102,14 +109,14 @@ export default class TCGCardPrototyper extends Plugin {
 			if(parsedJson.art !== undefined && parsedJson.art !== ""){
 				const imgfile = this.app.vault.getAbstractFileByPath(parsedJson.art);
 				const path = this.app.vault.getResourcePath(imgfile as TFile);
-				const cardTemplateArt = await loadImage(path);
-				cardImgCtx.drawImage(cardTemplateArt,0,0,700,1050);
+				const cardArt = await loadImage(path);
+				cardImgCtx.drawImage(cardArt,parsedJson.x,parsedJson.y,parsedJson.width,parsedJson.height);
 			}
 			if(cardImageType.background !== undefined && cardImageType.background !== ""){
 				const imgfile = this.app.vault.getAbstractFileByPath(cardImageType.background);
 				const path = this.app.vault.getResourcePath(imgfile as TFile);
 				const cardTemplateArt = await loadImage(path);
-				cardImgCtx.drawImage(cardTemplateArt,0,0,700,1050);
+				cardImgCtx.drawImage(cardTemplateArt,0,0,cardImageType.width,cardImageType.height);
 			}
 			for(let i = 0; i < parsedJson.attributes.length; ++i){
 				const attributeType = cardImageType.attributes.find(data => data.name === parsedJson.attributes[i].type);
@@ -119,6 +126,14 @@ export default class TCGCardPrototyper extends Plugin {
 						cardImgCtx.translate(attributeType.x,attributeType.y);
 						cardImgCtx.rotate(attributeType.rotation * (Math.PI / 180));
 						cardImgCtx.translate(-attributeType.x,-attributeType.y);
+					}
+					if(attributeType.imgSrc !== undefined){
+						const imgfile = this.app.vault.getAbstractFileByPath(attributeType.imgSrc);
+						const path = this.app.vault.getResourcePath(imgfile as TFile);
+						const cardSymbol = await loadImage(path);
+						cardImgCtx.drawImage(cardSymbol,attributeType.imgx + parsedJson.attributes[i].imgOffsetx,
+							cardSymbol,attributeType.imgy + parsedJson.attributes[i].imgOffsety,
+							attributeType.imgw, attributeType.imgh);
 					}
 					const text = parsedJson.attributes[i].text.split("\n");
 					for(let j = 0; j < text.length; ++j){
@@ -150,6 +165,3 @@ export default class TCGCardPrototyper extends Plugin {
 		await this.saveData(this.settings);
 	}
 }
-
-
-
